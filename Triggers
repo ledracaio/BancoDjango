@@ -1,0 +1,212 @@
+-- Trigger: atualizar_estoque_aquisicao_trigger
+
+-- DROP TRIGGER IF EXISTS atualizar_estoque_aquisicao_trigger ON public.aquisicao_produto;
+
+CREATE OR REPLACE TRIGGER atualizar_estoque_aquisicao_trigger
+    AFTER INSERT
+    ON public.aquisicao_produto
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_estoque_aquisicao();
+
+
+-------------------------
+
+
+
+-- Trigger: fecha_ou_nao_atendimento_trigger
+
+-- DROP TRIGGER IF EXISTS fecha_ou_nao_atendimento_trigger ON public.atendimento;
+
+CREATE OR REPLACE TRIGGER fecha_ou_nao_atendimento_trigger
+    BEFORE UPDATE 
+    ON public.atendimento
+    FOR EACH ROW
+    EXECUTE FUNCTION public.fecha_ou_nao_atendimento();
+
+
+    -------------------------
+
+
+
+    -- Trigger: aplicar_desconto_produto_trigger
+
+-- DROP TRIGGER IF EXISTS aplicar_desconto_produto_trigger ON public.atendimento_produto;
+
+CREATE OR REPLACE TRIGGER aplicar_desconto_produto_trigger
+    AFTER INSERT OR UPDATE 
+    ON public.atendimento_produto
+    FOR EACH ROW
+    EXECUTE FUNCTION public.aplicar_desconto();
+
+
+
+    --------------------
+
+
+
+
+    -- Trigger: atualizar_estoque_produto
+
+-- DROP TRIGGER IF EXISTS atualizar_estoque_produto ON public.atendimento_produto;
+
+CREATE OR REPLACE TRIGGER atualizar_estoque_produto
+    AFTER INSERT OR DELETE OR UPDATE 
+    ON public.atendimento_produto
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_estoque();
+
+
+    ------------------
+
+
+
+    -- Trigger: atualizar_valor_atendimento_produto
+
+-- DROP TRIGGER IF EXISTS atualizar_valor_atendimento_produto ON public.atendimento_produto;
+
+CREATE OR REPLACE TRIGGER atualizar_valor_atendimento_produto
+    AFTER INSERT OR UPDATE 
+    ON public.atendimento_produto
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_valor_atendimento();
+
+
+
+    ------------------------
+
+
+
+    -- Trigger: aplicar_desconto_trigger
+
+-- DROP TRIGGER IF EXISTS aplicar_desconto_trigger ON public.atendimento_servico;
+
+CREATE OR REPLACE TRIGGER aplicar_desconto_trigger
+    AFTER INSERT OR UPDATE 
+    ON public.atendimento_servico
+    FOR EACH ROW
+    EXECUTE FUNCTION public.aplicar_desconto();
+
+
+
+    ---------------------
+
+
+
+
+    -- Trigger: atualizar_valor_atendimento_servico
+
+-- DROP TRIGGER IF EXISTS atualizar_valor_atendimento_servico ON public.atendimento_servico;
+
+CREATE OR REPLACE TRIGGER atualizar_valor_atendimento_servico
+    AFTER INSERT OR UPDATE 
+    ON public.atendimento_servico
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_valor_atendimento();
+
+
+
+    --------------------
+
+
+
+
+    -- Trigger: atualizar_valor_atendimento_vacina
+
+-- DROP TRIGGER IF EXISTS atualizar_valor_atendimento_vacina ON public.atendimento_vacina;
+
+CREATE OR REPLACE TRIGGER atualizar_valor_atendimento_vacina
+    AFTER INSERT OR DELETE OR UPDATE 
+    ON public.atendimento_vacina
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_valor_atendimento();
+
+
+
+    -----------------
+
+
+
+    -- Trigger: delete_vacina_atendimento_trigger
+
+-- DROP TRIGGER IF EXISTS delete_vacina_atendimento_trigger ON public.atendimento_vacina;
+
+CREATE OR REPLACE TRIGGER delete_vacina_atendimento_trigger
+    BEFORE DELETE
+    ON public.atendimento_vacina
+    FOR EACH ROW
+    EXECUTE FUNCTION public.delete_vacina_atendimento();
+
+
+
+    ------------------------------
+
+
+
+
+    -- Trigger: insere_vacina_atendimento_trigger
+
+-- DROP TRIGGER IF EXISTS insere_vacina_atendimento_trigger ON public.atendimento_vacina;
+
+CREATE OR REPLACE TRIGGER insere_vacina_atendimento_trigger
+    BEFORE INSERT
+    ON public.atendimento_vacina
+    FOR EACH ROW
+    EXECUTE FUNCTION public.insere_vacina_atendimento();
+
+
+
+    ---------------
+
+
+
+    -- Trigger: update_vacina_atendimento_trigger
+
+-- DROP TRIGGER IF EXISTS update_vacina_atendimento_trigger ON public.atendimento_vacina;
+
+CREATE OR REPLACE TRIGGER update_vacina_atendimento_trigger
+    BEFORE UPDATE 
+    ON public.atendimento_vacina
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_vacina_atendimento();
+
+
+
+
+    -------------------
+
+
+
+    -- Trigger: atualizar_saldo_devedor_trigger
+
+-- DROP TRIGGER IF EXISTS atualizar_saldo_devedor_trigger ON public.parcela;
+
+CREATE OR REPLACE TRIGGER atualizar_saldo_devedor_trigger
+    AFTER INSERT OR UPDATE 
+    ON public.parcela
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_saldo_devedor();
+
+
+
+    ---------------
+
+
+
+
+    -- Trigger: atualizar_estoque_aquisicao_trigger
+
+-- DROP TRIGGER IF EXISTS atualizar_estoque_aquisicao_trigger ON public.pedido_produto;
+
+CREATE OR REPLACE TRIGGER atualizar_estoque_aquisicao_trigger
+    AFTER INSERT OR UPDATE 
+    ON public.pedido_produto
+    FOR EACH ROW
+    EXECUTE FUNCTION public.atualizar_estoque_aquisicao();
+
+
+
+    -------------------
+
+
+
+    

@@ -1,0 +1,425 @@
+-- FUNCTION: public.aplicar_desconto()
+
+-- DROP FUNCTION IF EXISTS public.aplicar_desconto();
+
+CREATE OR REPLACE FUNCTION public.aplicar_desconto()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+DECLARE
+    desconto_total NUMERIC := 0;
+    desconto_tipo NUMERIC := 0;
+    desconto_categoria NUMERIC := 0;
+BEGIN
+    -- Calcular desconto para serviços
+    --SELECT COALESCE(SUM(s.desconto * ats.quantidade), 0) INTO desconto_tipo
+    --FROM atendimento_servico ats
+    --JOIN servico s ON ats.servico_codigo = s.servico_codigo
+    --WHERE ats.atendimento_sequencia = NEW.atendimento_sequencia;
+
+    -- Calcular desconto para produtos
+    SELECT COALESCE(SUM(c.desconto * atp.quantidade), 0) INTO desconto_categoria
+    FROM atendimento_produto atp
+    JOIN produto p ON atp.produto_codigo = p.produto_codigo
+    JOIN categoria c ON p.categoria_codigo = c.categoria_codigo
+    WHERE atp.atendimento_sequencia = NEW.atendimento_sequencia;
+
+    -- Calcular o total de desconto
+    desconto_total := desconto_tipo + desconto_categoria;
+
+    -- Atualizar o valor total do atendimento com desconto aplicado
+    UPDATE atendimento
+    SET valor = valor - desconto_total
+    WHERE atendimento_sequencia = NEW.atendimento_sequencia;
+
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.aplicar_desconto()
+    OWNER TO postgres;
+
+
+----------------------------
+
+
+
+-- FUNCTION: public.atualizar_estoque()
+
+-- DROP FUNCTION IF EXISTS public.atualizar_estoque();
+
+CREATE OR REPLACE FUNCTION public.atualizar_estoque()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+BEGIN
+    IF (TG_OP = 'INSERT') THEN
+        UPDATE produto
+        SET estoque = estoque - NEW.quantidade
+        WHERE produto_codigo = NEW.produto_codigo;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        UPDATE produto
+        SET estoque = estoque + OLD.quantidade - NEW.quantidade
+        WHERE produto_codigo = NEW.produto_codigo;
+    ELSIF (TG_OP = 'DELETE') THEN
+        UPDATE produto
+        SET estoque = estoque + OLD.quantidade
+        WHERE produto_codigo = OLD.produto_codigo;
+    END IF;
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.atualizar_estoque()
+    OWNER TO postgres;
+
+
+
+---------------------------
+
+
+-- FUNCTION: public.atualizar_estoque_aquisicao()
+
+-- DROP FUNCTION IF EXISTS public.atualizar_estoque_aquisicao();
+
+CREATE OR REPLACE FUNCTION public.atualizar_estoque_aquisicao()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+BEGIN
+    UPDATE produto
+    SET estoque = estoque + NEW.quantidade
+    WHERE produto_codigo = NEW.produto_produto_codigo;
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.atualizar_estoque_aquisicao()
+    OWNER TO postgres;
+
+
+
+
+--------------------------
+
+
+
+-- FUNCTION: public.atualizar_estoque_pedido_produto()
+
+-- DROP FUNCTION IF EXISTS public.atualizar_estoque_pedido_produto();
+
+CREATE OR REPLACE FUNCTION public.atualizar_estoque_pedido_produto()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+BEGIN
+    UPDATE produto
+    SET estoque = estoque + NEW.quantidade
+    WHERE produto_codigo = NEW.produto_produto_codigo;
+
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.atualizar_estoque_pedido_produto()
+    OWNER TO postgres;
+
+
+
+-------------------------
+
+
+
+-- FUNCTION: public.atualizar_saldo_devedor()
+
+-- DROP FUNCTION IF EXISTS public.atualizar_saldo_devedor();
+
+CREATE OR REPLACE FUNCTION public.atualizar_saldo_devedor()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+BEGIN
+    IF (NEW.pagamento IS NOT NULL) THEN
+        -- Diminuir saldo devedor ao pagar uma parcela
+        UPDATE tutor
+        SET saldodevedor = saldodevedor - NEW.valor
+        WHERE tutor_codigo = (SELECT animal.tutor_codigo
+                              FROM atendimento
+                              JOIN animal ON atendimento.animal_codigo = animal.animal_codigo
+                              WHERE atendimento.atendimento_sequencia = NEW.atendimento_sequencia);
+    ELSIF (NEW.pagamento IS NULL AND OLD.pagamento IS NOT NULL) THEN
+        -- Aumentar saldo devedor ao reabrir uma parcela não paga
+        UPDATE tutor
+        SET saldodevedor = saldodevedor + NEW.valor
+        WHERE tutor_codigo = (SELECT animal.tutor_codigo
+                              FROM atendimento
+                              JOIN animal ON atendimento.animal_codigo = animal.animal_codigo
+                              WHERE atendimento.atendimento_sequencia = NEW.atendimento_sequencia);
+    END IF;
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.atualizar_saldo_devedor()
+    OWNER TO postgres;
+
+
+
+---------------------
+
+
+
+-- FUNCTION: public.atualizar_saldo_devedor_parcela()
+
+-- DROP FUNCTION IF EXISTS public.atualizar_saldo_devedor_parcela();
+
+CREATE OR REPLACE FUNCTION public.atualizar_saldo_devedor_parcela()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+BEGIN
+    IF NEW.pagamento IS NOT NULL THEN
+        -- Reduz o saldo devedor ao registrar pagamento
+        UPDATE tutor
+        SET saldodevedor = saldodevedor - NEW.valor
+        WHERE tutor_codigo = (SELECT animal.tutor_codigo FROM atendimento JOIN animal ON atendimento.animal_codigo = animal.animal_codigo WHERE atendimento.atendimento_sequencia = NEW.atendimento_sequencia);
+    ELSE
+        -- Reverte o saldo devedor ao desfazer o pagamento
+        UPDATE tutor
+        SET saldodevedor = saldodevedor + OLD.valor
+        WHERE tutor_codigo = (SELECT animal.tutor_codigo FROM atendimento JOIN animal ON atendimento.animal_codigo = animal.animal_codigo WHERE atendimento.atendimento_sequencia = OLD.atendimento_sequencia);
+    END IF;
+
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.atualizar_saldo_devedor_parcela()
+    OWNER TO postgres;
+
+
+
+-----------------
+
+
+
+-- FUNCTION: public.atualizar_valor_atendimento()
+
+-- DROP FUNCTION IF EXISTS public.atualizar_valor_atendimento();
+
+CREATE OR REPLACE FUNCTION public.atualizar_valor_atendimento()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+DECLARE
+    total_servicos NUMERIC := 0;
+    total_produtos NUMERIC := 0;
+	total_vacinas  NUMERIC := 0;
+BEGIN
+    -- Somar valores dos serviços do atendimento
+    SELECT COALESCE(SUM(s.valor * ats.quantidade), 0) INTO total_servicos
+    FROM atendimento_servico ats
+    JOIN servico s ON ats.servico_codigo = s.servico_codigo
+    WHERE ats.atendimento_sequencia = NEW.atendimento_sequencia;
+	
+	-- Somar valores dos serviços do atendimento
+    SELECT COALESCE(SUM(s.valor * ats.quantidade), 0) INTO total_vacinas
+    FROM atendimento_vacina ats
+    JOIN vacina s ON ats.vacina_codigo = s.vacina_codigo
+    WHERE ats.atendimento_sequencia = NEW.atendimento_sequencia;
+
+    -- Somar valores dos produtos do atendimento
+    SELECT COALESCE(SUM(p.valor * atp.quantidade), 0) INTO total_produtos
+    FROM atendimento_produto atp
+    JOIN produto p ON atp.produto_codigo = p.produto_codigo
+    WHERE atp.atendimento_sequencia = NEW.atendimento_sequencia;
+
+    -- Atualizar o valor total no atendimento
+    UPDATE atendimento
+    SET valor = total_servicos + total_produtos + total_vacinas
+    WHERE atendimento_sequencia = NEW.atendimento_sequencia;
+
+    RETURN NEW;
+END;
+$BODY$;
+
+ALTER FUNCTION public.atualizar_valor_atendimento()
+    OWNER TO postgres;
+
+
+
+
+-------------------
+
+
+-- FUNCTION: public.delete_vacina_atendimento()
+
+-- DROP FUNCTION IF EXISTS public.delete_vacina_atendimento();
+
+CREATE OR REPLACE FUNCTION public.delete_vacina_atendimento()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+declare
+  vVALOR NUMERIC(10,2);
+begin
+  select valor into vVALOR from vacina
+   where vacina_codigo = old.vacina_codigo;
+  update atendimento 
+     set valor = valor - (vVALOR * old.quantidade)
+   where atendimento_sequencia = old.atendimento_sequencia;
+  return old;
+end
+$BODY$;
+
+ALTER FUNCTION public.delete_vacina_atendimento()
+    OWNER TO postgres;
+
+
+
+
+-------------------
+
+
+-- FUNCTION: public.fecha_ou_nao_atendimento()
+
+-- DROP FUNCTION IF EXISTS public.fecha_ou_nao_atendimento();
+
+CREATE OR REPLACE FUNCTION public.fecha_ou_nao_atendimento()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+DECLARE
+   vTUTOR INTEGER;
+   vPARCELA numeric(10,2);
+   vRESTO numeric(10,2);
+   vSOMA numeric(10,2);
+BEGIN
+   IF (new.situacao_codigo = 2) AND (old.situacao_codigo = 1) THEN
+      SELECT tutor_codigo INTO vTUTOR FROM animal
+      WHERE animal_codigo = new.animal_codigo;
+      
+      UPDATE tutor SET saldodevedor = saldodevedor + new.valor
+      WHERE tutor_codigo = vTUTOR;
+
+      vPARCELA = new.valor / new.parcelas;
+      vRESTO = new.valor * (new.parcelas * vPARCELA);
+
+      FOR p IN 1..new.parcelas LOOP
+         IF p = 1 THEN
+            INSERT INTO parcela VALUES (new.atendimento_sequencia,new.atendimento_sequencia,
+                                        p, new.data + (30 * p), vPARCELA + vRESTO);
+         ELSE
+            INSERT INTO parcela VALUES (new.atendimento_sequencia,new.parcela_sequencia,new.atendimento_sequencia,
+                                        p, new.data + (30 * p), vPARCELA);
+         END IF;		   
+      END LOOP;
+   END IF;
+
+   IF (new.situacao_codigo = 1) AND (old.situacao_codigo = 2) THEN
+      SELECT SUM(valor) INTO vSOMA FROM parcela
+      WHERE atendimento_sequencia = new.atendimento_sequencia;
+
+      IF vSOMA > 0 THEN
+         RAISE EXCEPTION 'Há parcelas pagas';
+      ELSE
+         SELECT tutor_codigo INTO vTUTOR FROM animal
+         WHERE animal_codigo = new.animal_codigo;
+
+         UPDATE tutor SET saldodevedor = saldodevedor - new.valor
+         WHERE tutor_codigo = vTUTOR;
+
+         DELETE FROM parcelas 
+         WHERE atendimento_sequencia = new.atendimento_sequencia;
+      END IF;		   
+   END IF;
+
+   RETURN new;
+END;
+$BODY$;
+
+ALTER FUNCTION public.fecha_ou_nao_atendimento()
+    OWNER TO postgres;
+
+
+
+-----------------
+
+
+
+-- FUNCTION: public.insere_vacina_atendimento()
+
+-- DROP FUNCTION IF EXISTS public.insere_vacina_atendimento();
+
+CREATE OR REPLACE FUNCTION public.insere_vacina_atendimento()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+declare
+  vVALOR NUMERIC(10,2);
+begin
+  select valor into vVALOR from vacina
+   where vacina_codigo = new.vacina_codigo;
+  update atendimento 
+     set valor = valor + (vVALOR * new.quantidade)
+   where atendimento_sequencia = new.atendimento_sequencia;
+  return new;
+end
+$BODY$;
+
+ALTER FUNCTION public.insere_vacina_atendimento()
+    OWNER TO postgres;
+
+
+
+------------------
+
+
+
+-- FUNCTION: public.update_vacina_atendimento()
+
+-- DROP FUNCTION IF EXISTS public.update_vacina_atendimento();
+
+CREATE OR REPLACE FUNCTION public.update_vacina_atendimento()
+    RETURNS trigger
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE NOT LEAKPROOF
+AS $BODY$
+declare
+  vVALOR NUMERIC(10,2);
+begin
+  select valor into vVALOR from vacina
+   where vacina_codigo = new.vacina_codigo;
+  update atendimento 
+     set valor = valor + (vVALOR * (new.quantidade - old.quantidade))
+   where atendimento_sequencia = new.atendimento_sequencia;
+  return new;
+end
+$BODY$;
+
+ALTER FUNCTION public.update_vacina_atendimento()
+    OWNER TO postgres;
+
+
+
